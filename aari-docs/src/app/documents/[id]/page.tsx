@@ -14,6 +14,9 @@ interface PageProps {
   params: Promise<{ id: string }>
 }
 
+// TipTap content can be either HTML string or JSON object
+type EditorContent = string | object
+
 export default function DocumentPage({ params }: PageProps) {
   const { id } = use(params)
   const router = useRouter()
@@ -34,7 +37,8 @@ export default function DocumentPage({ params }: PageProps) {
   } = useComments(id)
 
   const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
+  // Content can be string (HTML) or object (TipTap JSON)
+  const [content, setContent] = useState<EditorContent>('')
   const [selectedText, setSelectedText] = useState<TextSelection | null>(null)
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -74,11 +78,9 @@ export default function DocumentPage({ params }: PageProps) {
   useEffect(() => {
     if (doc) {
       setTitle(doc.title)
-      if (typeof doc.content === 'string') {
-        setContent(doc.content)
-      } else if (doc.content && typeof doc.content === 'object') {
-        // TipTap JSON format - set empty and let editor handle it
-        setContent('')
+      // Pass content directly - TipTap handles both string (HTML) and object (JSON)
+      if (doc.content) {
+        setContent(doc.content as EditorContent)
       }
     }
   }, [doc])

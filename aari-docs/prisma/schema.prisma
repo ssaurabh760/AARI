@@ -13,18 +13,18 @@ model User {
   name      String
   email     String    @unique
   avatarUrl String?
+  createdAt DateTime  @default(now())
   comments  Comment[]
   replies   Reply[]
-  createdAt DateTime  @default(now())
 }
 
 model Document {
   id        String    @id @default(cuid())
   title     String    @default("Untitled")
   content   Json      @default("{}")
-  comments  Comment[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  comments  Comment[]
 
   @@index([updatedAt])
 }
@@ -32,17 +32,17 @@ model Document {
 model Comment {
   id              String   @id @default(cuid())
   documentId      String
-  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   userId          String
-  user            User     @relation(fields: [userId], references: [id])
   highlightedText String
   selectionFrom   Int
   selectionTo     Int
   content         String
   isResolved      Boolean  @default(false)
-  replies         Reply[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id])
+  replies         Reply[]
 
   @@index([documentId])
   @@index([isResolved])
@@ -51,12 +51,12 @@ model Comment {
 model Reply {
   id        String   @id @default(cuid())
   commentId String
-  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([commentId])
 }

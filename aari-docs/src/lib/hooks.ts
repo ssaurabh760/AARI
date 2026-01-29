@@ -8,6 +8,9 @@ const API_BASE = '/api'
 // Simulated current user (in production, this would come from auth)
 export const CURRENT_USER_ID = 'user_0_' // Will be completed after seed
 
+// TipTap content can be either HTML string or JSON object
+type EditorContent = string | object
+
 export function useDocument(id: string) {
   const [document, setDocument] = useState<Document | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -31,7 +34,8 @@ export function useDocument(id: string) {
     fetchDocument()
   }, [fetchDocument])
 
-  const updateDocument = async (updates: { title?: string; content?: string }) => {
+  // Accept both string and object content types
+  const updateDocument = async (updates: { title?: string; content?: EditorContent }) => {
     try {
       const res = await fetch(`${API_BASE}/documents/${id}`, {
         method: 'PATCH',
