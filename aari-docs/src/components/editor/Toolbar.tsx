@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useCallback } from 'react'
 import { Editor } from '@tiptap/react'
 import {
   Bold,
@@ -13,11 +12,8 @@ import {
   Heading3,
   List,
   ListOrdered,
-  Quote,
   Undo,
   Redo,
-  Link,
-  Unlink,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -33,45 +29,6 @@ interface ToolbarProps {
 }
 
 export function Toolbar({ editor }: ToolbarProps) {
-  const setLink = useCallback(() => {
-    const previousUrl = editor.getAttributes('link').href
-    const url = window.prompt('Enter URL:', previousUrl)
-
-    if (url === null) return
-
-    if (url === '') {
-      editor.chain().focus().extendMarkRange('link').unsetLink().run()
-      return
-    }
-
-    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
-  }, [editor])
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey) {
-        switch (e.key) {
-          case 'b':
-            e.preventDefault()
-            editor.chain().focus().toggleBold().run()
-            break
-          case 'i':
-            e.preventDefault()
-            editor.chain().focus().toggleItalic().run()
-            break
-          case 'u':
-            e.preventDefault()
-            editor.chain().focus().toggleUnderline().run()
-            break
-        }
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [editor])
-
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex items-center gap-1 border-b px-4 py-2 bg-gray-50 flex-wrap">
@@ -171,31 +128,6 @@ export function Toolbar({ editor }: ToolbarProps) {
           tooltip="Numbered List"
         >
           <ListOrdered className="h-4 w-4" />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          isActive={editor.isActive('blockquote')}
-          tooltip="Quote"
-        >
-          <Quote className="h-4 w-4" />
-        </ToolbarButton>
-
-        <Separator orientation="vertical" className="mx-1 h-6" />
-
-        {/* Link */}
-        <ToolbarButton
-          onClick={setLink}
-          isActive={editor.isActive('link')}
-          tooltip="Add Link"
-        >
-          <Link className="h-4 w-4" />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().unsetLink().run()}
-          disabled={!editor.isActive('link')}
-          tooltip="Remove Link"
-        >
-          <Unlink className="h-4 w-4" />
         </ToolbarButton>
       </div>
     </TooltipProvider>
