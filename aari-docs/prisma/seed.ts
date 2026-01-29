@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 import { faker } from '@faker-js/faker'
 
 const prisma = new PrismaClient()
@@ -37,7 +37,7 @@ async function main() {
       `Meeting Notes: ${faker.company.name()}`,
       `Project: ${faker.commerce.productName()}`,
     ]),
-    content: generateDocumentContent(),
+    content: generateDocumentContent() as Prisma.InputJsonValue,
     createdAt: faker.date.past({ years: 1 }),
     updatedAt: faker.date.recent({ days: 30 }),
   }))
@@ -143,9 +143,9 @@ async function main() {
   console.log('\n🎉 Seed completed successfully!')
 }
 
-function generateDocumentContent() {
+function generateDocumentContent(): Prisma.InputJsonValue {
   const numParagraphs = faker.number.int({ min: 3, max: 6 })
-  const content: unknown[] = []
+  const content: Prisma.InputJsonValue[] = []
 
   content.push({
     type: 'heading',
