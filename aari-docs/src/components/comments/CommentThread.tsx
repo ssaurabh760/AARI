@@ -79,6 +79,7 @@ export function CommentThread({
 
   return (
     <div
+      id={`comment-${comment.id}`}
       className={`rounded-lg border transition-all cursor-pointer ${
         isActive
           ? 'border-blue-400 bg-blue-50/50 shadow-sm'

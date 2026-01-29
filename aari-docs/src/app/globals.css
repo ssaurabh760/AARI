@@ -192,3 +192,35 @@
   font-weight: 600;
   margin-bottom: 0.5rem;
 }
+/* Comment Highlight Styles */
+.comment-highlight {
+  background-color: #fef08a;
+  border-bottom: 2px solid #eab308;
+  padding: 1px 0;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.comment-highlight:hover {
+  background-color: #fde047;
+}
+
+.comment-highlight-active {
+  background-color: #fde047;
+  animation: pulse-highlight 1s ease-in-out 2;
+}
+
+@keyframes pulse-highlight {
+  0%, 100% {
+    background-color: #fde047;
+  }
+  50% {
+    background-color: #facc15;
+  }
+}
+
+/* Resolved comment highlight */
+.comment-highlight[data-resolved="true"] {
+  background-color: #d1fae5;
+  border-bottom-color: #10b981;
+}

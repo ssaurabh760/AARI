@@ -6,6 +6,8 @@ import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Toolbar } from './Toolbar'
+import { CommentHighlight } from './extensions/CommentHighlight'
+import { useEffect, useCallback } from 'react'
 
 export interface TextSelection {
   from: number
@@ -13,10 +15,19 @@ export interface TextSelection {
   text: string
 }
 
+export interface CommentMark {
+  id: string
+  from: number
+  to: number
+}
+
 interface EditorProps {
   content: string
   onUpdate: (content: string) => void
   onSelectionChange?: (selection: TextSelection | null) => void
+  onCommentClick?: (commentId: string) => void
+  commentMarks?: CommentMark[]
+  activeCommentId?: string | null
   editable?: boolean
 }
 
@@ -24,10 +35,13 @@ export function Editor({
   content,
   onUpdate,
   onSelectionChange,
+  onCommentClick,
+  commentMarks = [],
+  activeCommentId,
   editable = true,
 }: EditorProps) {
   const editor = useEditor({
-    immediatelyRender: false, // Add this line for SSR
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: {
@@ -43,6 +57,11 @@ export function Editor({
       }),
       Placeholder.configure({
         placeholder: 'Start writing...',
+      }),
+      CommentHighlight.configure({
+        HTMLAttributes: {
+          class: 'comment-highlight',
+        },
       }),
     ],
     content,
@@ -64,8 +83,87 @@ export function Editor({
         class:
           'prose prose-sm sm:prose-base max-w-none focus:outline-none min-h-[500px] px-8 py-6',
       },
+      handleClick: (view, pos, event) => {
+        // Check if clicked on a comment highlight
+        const target = event.target as HTMLElement
+        const commentMark = target.closest('[data-comment-id]')
+        if (commentMark && onCommentClick) {
+          const commentId = commentMark.getAttribute('data-comment-id')
+          if (commentId) {
+            onCommentClick(commentId)
+            return true
+          }
+        }
+        return false
+      },
     },
   })
+
+  // Apply comment highlights
+  const applyHighlights = useCallback(() => {
+    if (!editor || commentMarks.length === 0) return
+
+    const { tr } = editor.state
+    let modified = false
+
+    // First, remove all existing comment highlights
+    editor.state.doc.descendants((node, pos) => {
+      if (node.marks) {
+        node.marks.forEach((mark) => {
+          if (mark.type.name === 'commentHighlight') {
+            tr.removeMark(pos, pos + node.nodeSize, mark.type)
+            modified = true
+          }
+        })
+      }
+    })
+
+    // Then apply new highlights
+    commentMarks.forEach((mark) => {
+      try {
+        const from = Math.max(0, mark.from)
+        const to = Math.min(editor.state.doc.content.size, mark.to)
+        if (from < to) {
+          tr.addMark(
+            from,
+            to,
+            editor.schema.marks.commentHighlight.create({ commentId: mark.id })
+          )
+          modified = true
+        }
+      } catch (e) {
+        console.warn('Failed to apply highlight:', e)
+      }
+    })
+
+    if (modified) {
+      editor.view.dispatch(tr)
+    }
+  }, [editor, commentMarks])
+
+  useEffect(() => {
+    if (editor && commentMarks.length > 0) {
+      // Delay to ensure editor is ready
+      const timer = setTimeout(applyHighlights, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [editor, commentMarks, applyHighlights])
+
+  // Scroll to active comment highlight
+  useEffect(() => {
+    if (!editor || !activeCommentId) return
+
+    const element = document.querySelector(
+      `[data-comment-id="${activeCommentId}"]`
+    )
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      element.classList.add('comment-highlight-active')
+      setTimeout(() => {
+        element.classList.remove('comment-highlight-active')
+      }, 2000)
+    }
+  }, [editor, activeCommentId])
 
   if (!editor) {
     return null

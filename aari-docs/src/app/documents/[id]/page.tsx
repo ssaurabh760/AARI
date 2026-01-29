@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect, useCallback, use } from 'react'
+import { useState, useEffect, useCallback, use, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Editor, TextSelection } from '@/components/editor'
+import { Editor, TextSelection, CommentMark } from '@/components/editor'
 import { CommentsSidebar } from '@/components/comments'
 import { useDocument, useComments } from '@/lib/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ArrowLeft, Loader2, Save, Check } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -16,10 +17,13 @@ interface PageProps {
 export default function DocumentPage({ params }: PageProps) {
   const { id } = use(params)
   const router = useRouter()
-  const { document, isLoading: docLoading, updateDocument } = useDocument(id)
+  const {
+    document: doc,
+    isLoading: docLoading,
+    updateDocument,
+  } = useDocument(id)
   const {
     comments,
-    isLoading: commentsLoading,
     addComment,
     updateComment,
     deleteComment,
@@ -36,6 +40,17 @@ export default function DocumentPage({ params }: PageProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string>('')
+
+  // Convert comments to marks for highlighting
+  const commentMarks: CommentMark[] = useMemo(() => {
+    return comments
+      .filter((c) => !c.isResolved)
+      .map((c) => ({
+        id: c.id,
+        from: c.selectionFrom,
+        to: c.selectionTo,
+      }))
+  }, [comments])
 
   // Fetch a user ID to use (first user from the database)
   useEffect(() => {
@@ -57,42 +72,43 @@ export default function DocumentPage({ params }: PageProps) {
 
   // Initialize content from document
   useEffect(() => {
-    if (document) {
-      setTitle(document.title)
-      // Convert JSON content to HTML for TipTap
-      if (typeof document.content === 'string') {
-        setContent(document.content)
-      } else {
-        // If it's JSON, we'll pass it directly
-        setContent(JSON.stringify(document.content))
+    if (doc) {
+      setTitle(doc.title)
+      if (typeof doc.content === 'string') {
+        setContent(doc.content)
+      } else if (doc.content && typeof doc.content === 'object') {
+        // TipTap JSON format - set empty and let editor handle it
+        setContent('')
       }
     }
-  }, [document])
+  }, [doc])
 
   // Auto-save with debounce
   const saveDocument = useCallback(async () => {
-    if (!document) return
+    if (!doc) return
     setIsSaving(true)
     try {
       await updateDocument({ title, content })
       setLastSaved(new Date())
     } catch (error) {
       console.error('Failed to save:', error)
+      toast.error('Failed to save document')
     } finally {
       setIsSaving(false)
     }
-  }, [document, title, content, updateDocument])
+  }, [doc, title, content, updateDocument])
 
   // Debounced auto-save
   useEffect(() => {
+    if (!doc) return
     const timer = setTimeout(() => {
-      if (document && (title !== document.title || content)) {
+      if (title !== doc.title || content) {
         saveDocument()
       }
     }, 2000)
 
     return () => clearTimeout(timer)
-  }, [title, content, document, saveDocument])
+  }, [title, content, doc, saveDocument])
 
   // Comment handlers
   const handleAddComment = async (
@@ -102,16 +118,101 @@ export default function DocumentPage({ params }: PageProps) {
     selectionTo: number
   ) => {
     if (!currentUserId) {
-      alert('No user available. Please run the seed script first.')
+      toast.error('No user available. Please run the seed script first.')
       return
     }
-    await addComment(commentContent, highlightedText, selectionFrom, selectionTo, currentUserId)
-    setSelectedText(null)
+    try {
+      await addComment(
+        commentContent,
+        highlightedText,
+        selectionFrom,
+        selectionTo,
+        currentUserId
+      )
+      setSelectedText(null)
+      toast.success('Comment added')
+    } catch {
+      toast.error('Failed to add comment')
+    }
   }
 
   const handleReply = async (commentId: string, replyContent: string) => {
-    if (!currentUserId) return
-    await addReply(commentId, replyContent, currentUserId)
+    if (!currentUserId) {
+      toast.error('No user available')
+      return
+    }
+    try {
+      await addReply(commentId, replyContent, currentUserId)
+      toast.success('Reply added')
+    } catch {
+      toast.error('Failed to add reply')
+    }
+  }
+
+  const handleResolve = async (commentId: string, isResolved: boolean) => {
+    try {
+      await resolveComment(commentId, isResolved)
+      toast.success(isResolved ? 'Comment resolved' : 'Comment reopened')
+    } catch {
+      toast.error('Failed to update comment')
+    }
+  }
+
+  const handleDelete = async (commentId: string) => {
+    try {
+      await deleteComment(commentId)
+      toast.success('Comment deleted')
+      if (activeCommentId === commentId) {
+        setActiveCommentId(null)
+      }
+    } catch {
+      toast.error('Failed to delete comment')
+    }
+  }
+
+  const handleEdit = async (commentId: string, content: string) => {
+    try {
+      await updateComment(commentId, content)
+      toast.success('Comment updated')
+    } catch {
+      toast.error('Failed to update comment')
+    }
+  }
+
+  const handleDeleteReply = async (replyId: string) => {
+    try {
+      await deleteReply(replyId)
+      toast.success('Reply deleted')
+    } catch {
+      toast.error('Failed to delete reply')
+    }
+  }
+
+  const handleEditReply = async (replyId: string, content: string) => {
+    try {
+      await updateReply(replyId, content)
+      toast.success('Reply updated')
+    } catch {
+      toast.error('Failed to update reply')
+    }
+  }
+
+  const handleCommentClick = (commentId: string) => {
+    setActiveCommentId(commentId)
+    // Scroll comment into view in sidebar
+    const commentElement = window.document.getElementById(`comment-${commentId}`)
+    if (commentElement) {
+      commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }
+
+  const handleEditorCommentClick = (commentId: string) => {
+    setActiveCommentId(commentId)
+    // Scroll to comment in sidebar
+    const commentElement = window.document.getElementById(`comment-${commentId}`)
+    if (commentElement) {
+      commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
   }
 
   if (docLoading) {
@@ -122,7 +223,7 @@ export default function DocumentPage({ params }: PageProps) {
     )
   }
 
-  if (!document) {
+  if (!doc) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -182,6 +283,9 @@ export default function DocumentPage({ params }: PageProps) {
             content={content}
             onUpdate={setContent}
             onSelectionChange={setSelectedText}
+            onCommentClick={handleEditorCommentClick}
+            commentMarks={commentMarks}
+            activeCommentId={activeCommentId}
           />
         </div>
 
@@ -190,15 +294,15 @@ export default function DocumentPage({ params }: PageProps) {
           comments={comments}
           selectedText={selectedText}
           activeCommentId={activeCommentId}
-          onCommentClick={setActiveCommentId}
+          onCommentClick={handleCommentClick}
           onAddComment={handleAddComment}
           onCancelComment={() => setSelectedText(null)}
-          onResolve={resolveComment}
-          onDelete={deleteComment}
-          onEdit={updateComment}
+          onResolve={handleResolve}
+          onDelete={handleDelete}
+          onEdit={handleEdit}
           onReply={handleReply}
-          onDeleteReply={deleteReply}
-          onEditReply={updateReply}
+          onDeleteReply={handleDeleteReply}
+          onEditReply={handleEditReply}
         />
       </div>
     </main>

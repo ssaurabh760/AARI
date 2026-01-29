@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useCallback } from 'react'
 import { Editor } from '@tiptap/react'
 import {
   Bold,
@@ -26,7 +27,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useCallback } from 'react'
 
 interface ToolbarProps {
   editor: Editor
@@ -45,6 +45,31 @@ export function Toolbar({ editor }: ToolbarProps) {
     }
 
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+  }, [editor])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey) {
+        switch (e.key) {
+          case 'b':
+            e.preventDefault()
+            editor.chain().focus().toggleBold().run()
+            break
+          case 'i':
+            e.preventDefault()
+            editor.chain().focus().toggleItalic().run()
+            break
+          case 'u':
+            e.preventDefault()
+            editor.chain().focus().toggleUnderline().run()
+            break
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
   }, [editor])
 
   return (
