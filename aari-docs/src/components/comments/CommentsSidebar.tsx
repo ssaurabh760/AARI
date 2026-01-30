@@ -72,15 +72,15 @@ export function CommentsSidebar({
   }
 
   return (
-    <aside className="w-80 border-l bg-gray-50 flex flex-col h-full">
+    <aside className="w-full h-full border-l bg-gray-50 flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b bg-white">
+      <div className="p-3 sm:p-4 border-b bg-white shrink-0">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="font-semibold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
             <MessageSquare className="h-4 w-4" />
             Comments
           </h2>
-          <span className="text-sm text-gray-500">
+          <span className="text-xs sm:text-sm text-gray-500">
             {activeComments.length} active
           </span>
         </div>
@@ -90,13 +90,13 @@ export function CommentsSidebar({
       <div className="flex-1 overflow-y-auto">
         {/* New Comment Form */}
         {selectedText && (
-          <div className="p-4 border-b bg-blue-50">
+          <div className="p-3 sm:p-4 border-b bg-blue-50">
             <div className="text-xs text-gray-500 mb-2">
               Commenting on:
             </div>
-            <div className="bg-white p-2 rounded text-sm text-gray-700 mb-3 border-l-2 border-blue-400">
-              "{selectedText.text.slice(0, 100)}
-              {selectedText.text.length > 100 ? '...' : ''}"
+            <div className="bg-white p-2 rounded text-xs sm:text-sm text-gray-700 mb-3 border-l-2 border-blue-400">
+              &ldquo;{selectedText.text.slice(0, 100)}
+              {selectedText.text.length > 100 ? '...' : ''}&rdquo;
             </div>
             <Textarea
               value={newComment}
@@ -128,7 +128,7 @@ export function CommentsSidebar({
 
         {/* Active Comments */}
         {activeComments.length === 0 && !selectedText ? (
-          <div className="p-8 text-center text-gray-500 text-sm">
+          <div className="p-6 sm:p-8 text-center text-gray-500 text-sm">
             <MessageSquare className="h-8 w-8 mx-auto mb-2 text-gray-300" />
             <p>No comments yet</p>
             <p className="text-xs mt-1">Select text to add a comment</p>
@@ -239,32 +239,36 @@ function CommentItem({
     setIsReplying(false)
   }
 
+  // Safely get user info
+  const userName = comment.user?.name ?? 'Unknown User'
+  const userImage = comment.user?.image ?? comment.user?.avatarUrl ?? undefined
+
   return (
     <div
       id={`comment-${comment.id}`}
-      className={`p-4 cursor-pointer transition-colors ${
+      className={`p-3 sm:p-4 cursor-pointer transition-colors ${
         isActive ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'
       }`}
       onClick={onClick}
     >
       {/* Comment Header */}
       <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
-          {comment.user?.image ? (
+        <div className="flex items-center gap-2 min-w-0">
+          {userImage ? (
             <img
-              src={comment.user.image}
-              alt={comment.user.name || 'User'}
-              className="h-6 w-6 rounded-full object-cover"
+              src={userImage}
+              alt={userName}
+              className="h-6 w-6 sm:h-7 sm:w-7 rounded-full object-cover shrink-0"
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-medium">
-              {comment.user?.name?.[0]?.toUpperCase() || '?'}
+            <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-medium shrink-0">
+              {userName[0]?.toUpperCase() || '?'}
             </div>
           )}
-          <div>
-            <p className="text-sm font-medium text-gray-900">
-              {comment.user?.name || 'Unknown'}
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
+              {userName}
             </p>
             <p className="text-xs text-gray-500">
               {formatDistanceToNow(new Date(comment.createdAt), {
@@ -276,7 +280,7 @@ function CommentItem({
 
         {/* Actions - Only show for owner */}
         {isOwner && !comment.isResolved && (
-          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
             <Button
               variant="ghost"
               size="sm"
@@ -301,8 +305,8 @@ function CommentItem({
 
       {/* Highlighted Text */}
       <div className="bg-yellow-50 p-2 rounded text-xs text-gray-600 mb-2 border-l-2 border-yellow-400">
-        "{comment.highlightedText.slice(0, 80)}
-        {comment.highlightedText.length > 80 ? '...' : ''}"
+        &ldquo;{comment.highlightedText.slice(0, 80)}
+        {comment.highlightedText.length > 80 ? '...' : ''}&rdquo;
       </div>
 
       {/* Comment Content */}
@@ -331,7 +335,7 @@ function CommentItem({
           </div>
         </div>
       ) : (
-        <p className="text-sm text-gray-700 mb-3">{comment.content}</p>
+        <p className="text-xs sm:text-sm text-gray-700 mb-3">{comment.content}</p>
       )}
 
       {/* Resolve/Reopen Button */}
@@ -341,7 +345,7 @@ function CommentItem({
             variant="outline"
             size="sm"
             onClick={() => onResolve(!comment.isResolved)}
-            className={comment.isResolved ? 'text-blue-600' : 'text-green-600'}
+            className={`text-xs ${comment.isResolved ? 'text-blue-600' : 'text-green-600'}`}
           >
             {comment.isResolved ? (
               <>
@@ -409,7 +413,7 @@ function CommentItem({
               variant="ghost"
               size="sm"
               onClick={() => setIsReplying(true)}
-              className="text-blue-600 mt-2"
+              className="text-blue-600 mt-2 text-xs"
             >
               Reply
             </Button>
@@ -430,6 +434,7 @@ interface ReplyItemProps {
       id: string
       name: string | null
       image?: string | null
+      avatarUrl?: string | null
     }
   }
   isOwner: boolean
@@ -447,26 +452,30 @@ function ReplyItem({ reply, isOwner, onDelete, onEdit }: ReplyItemProps) {
     setIsEditing(false)
   }
 
+  // Safely get user info
+  const userName = reply.user?.name ?? 'Unknown User'
+  const userImage = reply.user?.image ?? reply.user?.avatarUrl ?? undefined
+
   return (
     <div className="text-sm">
       <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-2">
-          {reply.user?.image ? (
+        <div className="flex items-center gap-2 min-w-0">
+          {userImage ? (
             <img
-              src={reply.user.image}
-              alt={reply.user.name || 'User'}
-              className="h-5 w-5 rounded-full object-cover"
+              src={userImage}
+              alt={userName}
+              className="h-5 w-5 rounded-full object-cover shrink-0"
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="h-5 w-5 rounded-full bg-gray-400 flex items-center justify-center text-white text-xs">
-              {reply.user?.name?.[0]?.toUpperCase() || '?'}
+            <div className="h-5 w-5 rounded-full bg-gray-400 flex items-center justify-center text-white text-xs shrink-0">
+              {userName[0]?.toUpperCase() || '?'}
             </div>
           )}
-          <span className="font-medium text-gray-900">
-            {reply.user?.name || 'Unknown'}
+          <span className="font-medium text-xs text-gray-900 truncate">
+            {userName}
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-gray-500 shrink-0">
             {formatDistanceToNow(new Date(reply.createdAt), {
               addSuffix: true,
             })}
@@ -475,7 +484,7 @@ function ReplyItem({ reply, isOwner, onDelete, onEdit }: ReplyItemProps) {
 
         {/* Only show edit/delete for reply owner */}
         {isOwner && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <Button
               variant="ghost"
               size="sm"
@@ -501,16 +510,17 @@ function ReplyItem({ reply, isOwner, onDelete, onEdit }: ReplyItemProps) {
           <Textarea
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
-            className="text-sm mb-2 resize-none"
+            className="text-xs mb-2 resize-none"
             rows={2}
           />
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleSaveEdit}>
+            <Button size="sm" className="h-6 text-xs" onClick={handleSaveEdit}>
               Save
             </Button>
             <Button
               size="sm"
               variant="outline"
+              className="h-6 text-xs"
               onClick={() => {
                 setIsEditing(false)
                 setEditContent(reply.content)
@@ -521,7 +531,7 @@ function ReplyItem({ reply, isOwner, onDelete, onEdit }: ReplyItemProps) {
           </div>
         </div>
       ) : (
-        <p className="text-gray-700">{reply.content}</p>
+        <p className="text-xs sm:text-sm text-gray-700">{reply.content}</p>
       )}
     </div>
   )

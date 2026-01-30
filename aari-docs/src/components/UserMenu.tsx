@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { User, LogOut, Loader2 } from 'lucide-react'
+import { LogOut, Loader2 } from 'lucide-react'
 
 export function UserMenu() {
   const { data: session, status } = useSession()
@@ -38,7 +38,7 @@ export function UserMenu() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="relative h-9 w-9 rounded-full p-0 overflow-hidden"
+          className="relative h-8 w-8 sm:h-9 sm:w-9 rounded-full p-0 overflow-hidden"
         >
           {session.user.image ? (
             <img
@@ -48,7 +48,7 @@ export function UserMenu() {
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="h-full w-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
+            <div className="h-full w-full bg-blue-600 flex items-center justify-center text-white text-xs sm:text-sm font-medium">
               {initials}
             </div>
           )}
@@ -60,15 +60,15 @@ export function UserMenu() {
             <img
               src={session.user.image}
               alt={session.user.name || 'User'}
-              className="h-10 w-10 rounded-full object-cover"
+              className="h-10 w-10 rounded-full object-cover shrink-0"
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
+            <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium shrink-0">
               {initials}
             </div>
           )}
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">
               {session.user.name}
             </p>

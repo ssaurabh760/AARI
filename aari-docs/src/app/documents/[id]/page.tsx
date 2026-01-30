@@ -8,7 +8,7 @@ import { CommentsSidebar } from '@/components/comments'
 import { useDocument, useComments } from '@/lib/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Loader2, Save, Check } from 'lucide-react'
+import { ArrowLeft, Loader2, Save, Check, MessageSquare, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { UserMenu } from '@/components/UserMenu'
 
@@ -43,9 +43,17 @@ export default function DocumentPage({ params }: PageProps) {
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  
+  // Mobile sidebar state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   // Get current user ID from session
   const currentUserId = session?.user?.id || ''
+
+  // Count active comments for badge
+  const activeCommentsCount = useMemo(() => {
+    return comments.filter((c) => !c.isResolved).length
+  }, [comments])
 
   // Convert comments to marks for highlighting
   const commentMarks: CommentMark[] = useMemo(() => {
@@ -66,7 +74,7 @@ export default function DocumentPage({ params }: PageProps) {
     }
   }, [doc])
 
-  // Auto-save with debounce
+  // Auto-save with debounce (5 seconds)
   const saveDocument = useCallback(async () => {
     if (!doc) return
     setIsSaving(true)
@@ -92,6 +100,13 @@ export default function DocumentPage({ params }: PageProps) {
 
     return () => clearTimeout(timer)
   }, [title, content, doc, saveDocument])
+
+  // Open sidebar when text is selected (for adding comment)
+  useEffect(() => {
+    if (selectedText) {
+      setIsSidebarOpen(true)
+    }
+  }, [selectedText])
 
   // Comment handlers
   const handleAddComment = async (
@@ -190,9 +205,12 @@ export default function DocumentPage({ params }: PageProps) {
 
   const handleEditorCommentClick = (commentId: string) => {
     setActiveCommentId(commentId)
+    setIsSidebarOpen(true) // Open sidebar on mobile when clicking highlight
     const commentElement = window.document.getElementById(`comment-${commentId}`)
     if (commentElement) {
-      commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setTimeout(() => {
+        commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 300) // Wait for sidebar animation
     }
   }
 
@@ -219,49 +237,73 @@ export default function DocumentPage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-white flex flex-col">
       {/* Header */}
-      <header className="border-b px-4 py-3 flex items-center justify-between bg-white sticky top-0 z-10">
-        <div className="flex items-center gap-4">
+      <header className="border-b px-3 md:px-4 py-2 md:py-3 flex items-center justify-between bg-white sticky top-0 z-10">
+        <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push('/')}
-            className="gap-2"
+            className="shrink-0 p-2 md:px-3"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back
+            <span className="hidden sm:inline ml-2">Back</span>
           </Button>
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="text-lg font-semibold border-none shadow-none focus-visible:ring-0 w-[300px]"
+            className="text-base md:text-lg font-semibold border-none shadow-none focus-visible:ring-0 flex-1 min-w-0"
             placeholder="Untitled"
           />
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3 text-sm text-gray-500">
+        <div className="flex items-center gap-2 md:gap-3 shrink-0">
+          {/* Save status - hide on mobile */}
+          <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500">
             {isSaving ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Saving...
+                <span className="hidden md:inline">Saving...</span>
               </span>
             ) : lastSaved ? (
               <span className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-green-500" />
-                Saved
+                <span className="hidden md:inline">Saved</span>
               </span>
             ) : null}
-            <Button size="sm" onClick={saveDocument} disabled={isSaving}>
-              <Save className="h-4 w-4 mr-2" />
-              Save
-            </Button>
           </div>
+          
+          {/* Save button - smaller on mobile */}
+          <Button 
+            size="sm" 
+            onClick={saveDocument} 
+            disabled={isSaving}
+            className="px-2 md:px-3"
+          >
+            <Save className="h-4 w-4" />
+            <span className="hidden sm:inline ml-2">Save</span>
+          </Button>
+
+          {/* Comments toggle button - visible on mobile */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="lg:hidden relative px-2 md:px-3"
+          >
+            <MessageSquare className="h-4 w-4" />
+            {activeCommentsCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {activeCommentsCount}
+              </span>
+            )}
+          </Button>
+
           <UserMenu />
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         {/* Editor */}
         <div className="flex-1 overflow-y-auto">
           <Editor
@@ -274,22 +316,51 @@ export default function DocumentPage({ params }: PageProps) {
           />
         </div>
 
-        {/* Comments Sidebar */}
-        <CommentsSidebar
-          comments={comments}
-          selectedText={selectedText}
-          activeCommentId={activeCommentId}
-          currentUserId={currentUserId}
-          onCommentClick={handleCommentClick}
-          onAddComment={handleAddComment}
-          onCancelComment={() => setSelectedText(null)}
-          onResolve={handleResolve}
-          onDelete={handleDelete}
-          onEdit={handleEdit}
-          onReply={handleReply}
-          onDeleteReply={handleDeleteReply}
-          onEditReply={handleEditReply}
-        />
+        {/* Comments Sidebar - Desktop: always visible, Mobile: slide-over */}
+        <>
+          {/* Mobile overlay backdrop */}
+          {isSidebarOpen && (
+            <div 
+              className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+          )}
+          
+          {/* Sidebar */}
+          <div className={`
+            fixed lg:relative inset-y-0 right-0 z-30
+            w-[85vw] sm:w-80 
+            transform transition-transform duration-300 ease-in-out
+            lg:transform-none lg:transition-none
+            ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+          `}>
+            {/* Mobile close button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsSidebarOpen(false)}
+              className="absolute top-2 right-2 z-10 lg:hidden"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+
+            <CommentsSidebar
+              comments={comments}
+              selectedText={selectedText}
+              activeCommentId={activeCommentId}
+              currentUserId={currentUserId}
+              onCommentClick={handleCommentClick}
+              onAddComment={handleAddComment}
+              onCancelComment={() => setSelectedText(null)}
+              onResolve={handleResolve}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+              onReply={handleReply}
+              onDeleteReply={handleDeleteReply}
+              onEditReply={handleEditReply}
+            />
+          </div>
+        </>
       </div>
     </main>
   )
