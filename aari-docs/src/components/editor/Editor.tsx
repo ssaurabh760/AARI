@@ -7,6 +7,8 @@ import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Toolbar } from './Toolbar'
 import { CommentHighlight } from './extensions/CommentHighlight'
+import { AIBubbleMenu } from './AIBubbleMenu'
+import { SlashCommands } from './SlashCommands'
 import { useEffect, useCallback, useRef } from 'react'
 
 export interface TextSelection {
@@ -22,11 +24,11 @@ export interface CommentMark {
 }
 
 // TipTap content can be either HTML string or JSON object
-type EditorContent = string | object
+type EditorContentType = string | object
 
 interface EditorProps {
-  content: EditorContent
-  onUpdate: (content: EditorContent) => void
+  content: EditorContentType
+  onUpdate: (content: EditorContentType) => void
   onSelectionChange?: (selection: TextSelection | null) => void
   onCommentClick?: (commentId: string) => void
   commentMarks?: CommentMark[]
@@ -45,7 +47,6 @@ export function Editor({
 }: EditorProps) {
   // Track if we've set initial content to avoid overwriting user edits
   const hasSetInitialContent = useRef(false)
-  const lastContentRef = useRef<EditorContent>(content)
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -63,7 +64,7 @@ export function Editor({
         },
       }),
       Placeholder.configure({
-        placeholder: 'Start writing...',
+        placeholder: 'Start writing... (Type "/" for commands)',
       }),
       CommentHighlight.configure({
         HTMLAttributes: {
@@ -111,20 +112,15 @@ export function Editor({
   useEffect(() => {
     if (!editor || editor.isDestroyed) return
 
-    // Check if content has actually changed
-    const contentChanged = JSON.stringify(content) !== JSON.stringify(lastContentRef.current)
-    
-    // Only set content if:
-    // 1. We haven't set initial content yet and content is not empty, OR
-    // 2. Content has changed from external source (not from user typing)
-    const hasContent = typeof content === 'string' 
-      ? content.length > 0 
-      : (content && typeof content === 'object' && Object.keys(content).length > 0)
+    // Only set content if it's meaningful (not empty string/object)
+    const hasContent =
+      typeof content === 'string'
+        ? content.length > 0
+        : content && typeof content === 'object' && Object.keys(content).length > 0
 
     if (hasContent && !hasSetInitialContent.current) {
       editor.commands.setContent(content)
       hasSetInitialContent.current = true
-      lastContentRef.current = content
     }
   }, [editor, content])
 
@@ -201,8 +197,11 @@ export function Editor({
   return (
     <div className="flex flex-col h-full">
       <Toolbar editor={editor} />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto relative">
         <EditorContent editor={editor} />
+        {/* AI Features */}
+        <AIBubbleMenu editor={editor} />
+        <SlashCommands editor={editor} />
       </div>
     </div>
   )

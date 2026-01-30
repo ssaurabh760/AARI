@@ -1,4 +1,5 @@
 export { Editor } from './Editor'
 export { Toolbar } from './Toolbar'
-export { CommentHighlight } from './extensions/CommentHighlight'
+export { AIBubbleMenu } from './AIBubbleMenu'
+export { SlashCommands } from './SlashCommands'
 export type { TextSelection, CommentMark } from './Editor'

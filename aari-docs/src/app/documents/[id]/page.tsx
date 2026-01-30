@@ -85,28 +85,40 @@ export default function DocumentPage({ params }: PageProps) {
     }
   }, [doc])
 
+  // Track if content has changed from initial load
+  const [hasContentChanged, setHasContentChanged] = useState(false)
+
+  // Handle content updates from editor
+  const handleContentUpdate = useCallback((newContent: EditorContent) => {
+    setContent(newContent)
+    setHasContentChanged(true)
+  }, [])
+
   // Auto-save with debounce
   const saveDocument = useCallback(async () => {
     if (!doc) return
+    if (!hasContentChanged && title === doc.title) return // Skip if nothing changed
+    
     setIsSaving(true)
     try {
       await updateDocument({ title, content })
       setLastSaved(new Date())
+      setHasContentChanged(false) // Reset after successful save
     } catch (error) {
       console.error('Failed to save:', error)
       toast.error('Failed to save document')
     } finally {
       setIsSaving(false)
     }
-  }, [doc, title, content, updateDocument])
+  }, [doc, title, content, hasContentChanged, updateDocument])
 
   // Debounced auto-save
   useEffect(() => {
     if (!doc) return
+    if (!hasContentChanged && title === doc.title) return // Don't set timer if nothing changed
+    
     const timer = setTimeout(() => {
-      if (title !== doc.title || content) {
-        saveDocument()
-      }
+      saveDocument()
     }, 2000)
 
     return () => clearTimeout(timer)
@@ -283,7 +295,7 @@ export default function DocumentPage({ params }: PageProps) {
         <div className="flex-1 overflow-y-auto">
           <Editor
             content={content}
-            onUpdate={setContent}
+            onUpdate={handleContentUpdate}
             onSelectionChange={setSelectedText}
             onCommentClick={handleEditorCommentClick}
             commentMarks={commentMarks}
