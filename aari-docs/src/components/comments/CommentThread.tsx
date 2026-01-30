@@ -5,37 +5,39 @@ import { formatDistanceToNow } from 'date-fns'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Comment as CommentType } from '@/lib/types'
+import {
+  MoreHorizontal,
+  Check,
+  RotateCcw,
+  Trash2,
+  Edit2,
+  Send,
+} from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  CheckCircle,
-  Circle,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  Reply,
-} from 'lucide-react'
-import { Comment, Reply as ReplyType } from '@/lib/types'
 
 interface CommentThreadProps {
-  comment: Comment
+  comment: CommentType
   isActive: boolean
+  currentUserId?: string
   onClick: () => void
-  onResolve: (commentId: string, isResolved: boolean) => Promise<void>
-  onDelete: (commentId: string) => Promise<void>
-  onEdit: (commentId: string, content: string) => Promise<void>
-  onReply: (commentId: string, content: string) => Promise<void>
-  onDeleteReply: (replyId: string) => Promise<void>
-  onEditReply: (replyId: string, content: string) => Promise<void>
+  onResolve: (isResolved: boolean) => void
+  onDelete: () => void
+  onEdit: (content: string) => void
+  onReply: (content: string) => void
+  onDeleteReply: (replyId: string) => void
+  onEditReply: (replyId: string, content: string) => void
 }
 
 export function CommentThread({
   comment,
   isActive,
+  currentUserId = '',
   onClick,
   onResolve,
   onDelete,
@@ -48,27 +50,12 @@ export function CommentThread({
   const [editContent, setEditContent] = useState(comment.content)
   const [isReplying, setIsReplying] = useState(false)
   const [replyContent, setReplyContent] = useState('')
-  const [editingReplyId, setEditingReplyId] = useState<string | null>(null)
-  const [editReplyContent, setEditReplyContent] = useState('')
 
-  const handleEdit = async () => {
-    await onEdit(comment.id, editContent)
-    setIsEditing(false)
-  }
+  // Check if current user owns this comment
+  const isOwner = currentUserId === comment.userId
 
-  const handleReply = async () => {
-    if (!replyContent.trim()) return
-    await onReply(comment.id, replyContent)
-    setReplyContent('')
-    setIsReplying(false)
-  }
-
-  const handleEditReply = async (replyId: string) => {
-    await onEditReply(replyId, editReplyContent)
-    setEditingReplyId(null)
-  }
-
-  const getInitials = (name: string) => {
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return '?'
     return name
       .split(' ')
       .map((n) => n[0])
@@ -77,134 +64,164 @@ export function CommentThread({
       .slice(0, 2)
   }
 
+  const handleSaveEdit = () => {
+    if (!editContent.trim()) return
+    onEdit(editContent.trim())
+    setIsEditing(false)
+  }
+
+  const handleSubmitReply = () => {
+    if (!replyContent.trim()) return
+    onReply(replyContent.trim())
+    setReplyContent('')
+    setIsReplying(false)
+  }
+
+  // Safely get user info
+  const userName = comment.user?.name ?? 'Unknown User'
+  const userImage = comment.user?.image ?? comment.user?.avatarUrl ?? undefined
+
   return (
     <div
       id={`comment-${comment.id}`}
-      className={`rounded-lg border transition-all cursor-pointer ${
-        isActive
-          ? 'border-blue-400 bg-blue-50/50 shadow-sm'
-          : 'border-gray-200 bg-white hover:border-gray-300'
+      className={`p-4 border-b cursor-pointer transition-colors ${
+        isActive ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
       } ${comment.isResolved ? 'opacity-60' : ''}`}
       onClick={onClick}
     >
-      {/* Highlighted Text */}
-      <div className="px-4 pt-3 pb-2 border-b bg-gray-50/50 rounded-t-lg">
-        <p className="text-xs text-gray-500 line-clamp-2">
-          "{comment.highlightedText}"
-        </p>
-      </div>
+      {/* Comment Header */}
+      <div className="flex items-start gap-3">
+        <Avatar className="h-8 w-8">
+          <AvatarImage src={userImage} />
+          <AvatarFallback className="text-xs">
+            {getInitials(userName)}
+          </AvatarFallback>
+        </Avatar>
 
-      {/* Main Comment */}
-      <div className="p-4">
-        <div className="flex items-start gap-3">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={comment.user.avatarUrl || undefined} />
-            <AvatarFallback className="text-xs">
-              {getInitials(comment.user.name)}
-            </AvatarFallback>
-          </Avatar>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium truncate">
-                  {comment.user.name}
-                </span>
-                <span className="text-xs text-gray-400">
-                  {formatDistanceToNow(new Date(comment.createdAt), {
-                    addSuffix: true,
-                  })}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={() => onResolve(comment.id, !comment.isResolved)}
-                  title={comment.isResolved ? 'Reopen' : 'Resolve'}
-                >
-                  {comment.isResolved ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Circle className="h-4 w-4 text-gray-400" />
-                  )}
-                </Button>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                      <Pencil className="h-4 w-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => onDelete(comment.id)}
-                      className="text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <span className="font-medium text-sm text-gray-900">
+                {userName}
+              </span>
+              <span className="text-xs text-gray-500 ml-2">
+                {formatDistanceToNow(new Date(comment.createdAt), {
+                  addSuffix: true,
+                })}
+              </span>
             </div>
 
-            {isEditing ? (
-              <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-                <Textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  className="min-h-[60px] text-sm"
-                />
-                <div className="flex justify-end gap-2 mt-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsEditing(false)}
+            {/* Actions dropdown - only show for owner */}
+            {isOwner && !comment.isResolved && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={onDelete}
+                    className="text-red-600"
                   >
-                    Cancel
-                  </Button>
-                  <Button size="sm" onClick={handleEdit}>
-                    Save
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-700 mt-1">{comment.content}</p>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
-        </div>
 
-        {/* Replies */}
-        {comment.replies && comment.replies.length > 0 && (
-          <div className="mt-4 ml-11 space-y-3 border-l-2 border-gray-100 pl-4">
-            {comment.replies.map((reply: ReplyType) => (
+          {/* Highlighted text reference */}
+          <div className="mt-1 text-xs text-gray-500 bg-yellow-50 px-2 py-1 rounded border-l-2 border-yellow-400">
+            &ldquo;{comment.highlightedText.slice(0, 60)}
+            {comment.highlightedText.length > 60 ? '...' : ''}&rdquo;
+          </div>
+
+          {/* Comment content */}
+          {isEditing ? (
+            <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+              <Textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="text-sm resize-none"
+                rows={2}
+              />
+              <div className="flex gap-2 mt-2">
+                <Button size="sm" onClick={handleSaveEdit}>
+                  Save
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditing(false)
+                    setEditContent(comment.content)
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-gray-700">{comment.content}</p>
+          )}
+
+          {/* Resolve button */}
+          {!isEditing && (
+            <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onResolve(!comment.isResolved)}
+                className={`text-xs ${
+                  comment.isResolved
+                    ? 'text-blue-600 hover:text-blue-700'
+                    : 'text-green-600 hover:text-green-700'
+                }`}
+              >
+                {comment.isResolved ? (
+                  <>
+                    <RotateCcw className="h-3 w-3 mr-1" />
+                    Reopen
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3 w-3 mr-1" />
+                    Resolve
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Replies */}
+      {comment.replies && comment.replies.length > 0 && (
+        <div className="mt-3 ml-11 space-y-3 border-l-2 border-gray-100 pl-3">
+          {comment.replies.map((reply) => {
+            const isReplyOwner = currentUserId === reply.userId
+            return (
               <ReplyItem
                 key={reply.id}
                 reply={reply}
-                isEditing={editingReplyId === reply.id}
-                editContent={editReplyContent}
-                onEditChange={setEditReplyContent}
-                onStartEdit={() => {
-                  setEditingReplyId(reply.id)
-                  setEditReplyContent(reply.content)
-                }}
-                onCancelEdit={() => setEditingReplyId(null)}
-                onSaveEdit={() => handleEditReply(reply.id)}
+                isOwner={isReplyOwner}
                 onDelete={() => onDeleteReply(reply.id)}
+                onEdit={(content) => onEditReply(reply.id, content)}
                 getInitials={getInitials}
               />
-            ))}
-          </div>
-        )}
+            )
+          })}
+        </div>
+      )}
 
-        {/* Reply Input */}
+      {/* Reply form */}
+      {!comment.isResolved && !isEditing && (
         <div className="mt-3 ml-11" onClick={(e) => e.stopPropagation()}>
           {isReplying ? (
             <div>
@@ -212,19 +229,23 @@ export function CommentThread({
                 value={replyContent}
                 onChange={(e) => setReplyContent(e.target.value)}
                 placeholder="Write a reply..."
-                className="min-h-[60px] text-sm"
-                autoFocus
+                className="text-sm resize-none"
+                rows={2}
               />
-              <div className="flex justify-end gap-2 mt-2">
+              <div className="flex gap-2 mt-2">
+                <Button size="sm" onClick={handleSubmitReply}>
+                  <Send className="h-3 w-3 mr-1" />
+                  Reply
+                </Button>
                 <Button
-                  variant="ghost"
                   size="sm"
-                  onClick={() => setIsReplying(false)}
+                  variant="outline"
+                  onClick={() => {
+                    setIsReplying(false)
+                    setReplyContent('')
+                  }}
                 >
                   Cancel
-                </Button>
-                <Button size="sm" onClick={handleReply}>
-                  Reply
                 </Button>
               </div>
             </div>
@@ -232,99 +253,121 @@ export function CommentThread({
             <Button
               variant="ghost"
               size="sm"
-              className="text-gray-500 h-8 px-2"
               onClick={() => setIsReplying(true)}
+              className="text-blue-600 text-xs"
             >
-              <Reply className="h-4 w-4 mr-1" />
               Reply
             </Button>
           )}
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
 interface ReplyItemProps {
-  reply: ReplyType
-  isEditing: boolean
-  editContent: string
-  onEditChange: (content: string) => void
-  onStartEdit: () => void
-  onCancelEdit: () => void
-  onSaveEdit: () => void
+  reply: {
+    id: string
+    content: string
+    createdAt: Date | string
+    userId: string
+    user?: {
+      id: string
+      name: string | null
+      image?: string | null
+      avatarUrl?: string | null
+    }
+  }
+  isOwner: boolean
   onDelete: () => void
-  getInitials: (name: string) => string
+  onEdit: (content: string) => void
+  getInitials: (name: string | null | undefined) => string
 }
 
-function ReplyItem({
-  reply,
-  isEditing,
-  editContent,
-  onEditChange,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
-  onDelete,
-  getInitials,
-}: ReplyItemProps) {
+function ReplyItem({ reply, isOwner, onDelete, onEdit, getInitials }: ReplyItemProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(reply.content)
+
+  const handleSaveEdit = () => {
+    if (!editContent.trim()) return
+    onEdit(editContent.trim())
+    setIsEditing(false)
+  }
+
+  // Safely get user info
+  const replyUserName = reply.user?.name ?? 'Unknown User'
+  const replyUserImage = reply.user?.image ?? reply.user?.avatarUrl ?? undefined
+
   return (
     <div className="flex items-start gap-2">
       <Avatar className="h-6 w-6">
-        <AvatarImage src={reply.user.avatarUrl || undefined} />
+        <AvatarImage src={replyUserImage} />
         <AvatarFallback className="text-xs">
-          {getInitials(reply.user.name)}
+          {getInitials(replyUserName)}
         </AvatarFallback>
       </Avatar>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium">{reply.user.name}</span>
-            <span className="text-xs text-gray-400">
-              {formatDistanceToNow(new Date(reply.createdAt), {
-                addSuffix: true,
-              })}
-            </span>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-xs text-gray-900">
+            {replyUserName}
+          </span>
+          <span className="text-xs text-gray-500">
+            {formatDistanceToNow(new Date(reply.createdAt), {
+              addSuffix: true,
+            })}
+          </span>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                <MoreHorizontal className="h-3 w-3" />
+          {/* Edit/Delete for reply owner only */}
+          {isOwner && (
+            <div className="ml-auto flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => setIsEditing(true)}
+              >
+                <Edit2 className="h-3 w-3" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onStartEdit}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onDelete} className="text-red-600">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 text-red-600"
+                onClick={onDelete}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
         </div>
 
         {isEditing ? (
           <div className="mt-1">
             <Textarea
               value={editContent}
-              onChange={(e) => onEditChange(e.target.value)}
-              className="min-h-[40px] text-sm"
+              onChange={(e) => setEditContent(e.target.value)}
+              className="text-xs resize-none"
+              rows={2}
             />
-            <div className="flex justify-end gap-2 mt-1">
-              <Button variant="ghost" size="sm" onClick={onCancelEdit}>
-                Cancel
-              </Button>
-              <Button size="sm" onClick={onSaveEdit}>
+            <div className="flex gap-2 mt-1">
+              <Button size="sm" className="h-6 text-xs" onClick={handleSaveEdit}>
                 Save
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 text-xs"
+                onClick={() => {
+                  setIsEditing(false)
+                  setEditContent(reply.content)
+                }}
+              >
+                Cancel
               </Button>
             </div>
           </div>
         ) : (
-          <p className="text-sm text-gray-600">{reply.content}</p>
+          <p className="text-sm text-gray-700">{reply.content}</p>
         )}
       </div>
     </div>
