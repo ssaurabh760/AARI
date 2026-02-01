@@ -9,7 +9,8 @@ import { Toolbar } from './Toolbar'
 import { CommentHighlight } from './extensions/CommentHighlight'
 import { AIBubbleMenu } from './AIBubbleMenu'
 import { SlashCommands } from './SlashCommands'
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useRef, useMemo } from 'react'
+import * as Y from 'yjs'
 
 export interface TextSelection {
   from: number
@@ -26,11 +27,45 @@ export interface CommentMark {
 // TipTap content can be either HTML string or JSON object
 type EditorContentType = string | object
 
+/**
+ * Syncs the ProseMirror document to the Yjs document for position tracking.
+ * This allows us to use Yjs relative positions for accurate comment anchoring.
+ */
+function syncToYjs(
+  editor: any,
+  yjsSetup: { doc: Y.Doc; fragment: Y.XmlFragment }
+) {
+  if (!editor || !yjsSetup) return
+  
+  try {
+    const { doc, fragment } = yjsSetup
+    
+    // Get the plain text content from the editor
+    const text = editor.state.doc.textContent
+    
+    // Use a Y.Text for simpler position tracking
+    const ytext = doc.getText('content')
+    
+    // Only sync if content has changed
+    const currentYText = ytext.toString()
+    if (currentYText !== text) {
+      doc.transact(() => {
+        ytext.delete(0, ytext.length)
+        ytext.insert(0, text)
+      })
+    }
+  } catch (e) {
+    console.warn('Failed to sync to Yjs:', e)
+  }
+}
+
 interface EditorProps {
   content: EditorContentType
+  documentId: string
   onUpdate: (content: EditorContentType) => void
   onSelectionChange?: (selection: TextSelection | null) => void
   onCommentClick?: (commentId: string) => void
+  onYjsReady?: (ydoc: Y.Doc, fragment: Y.XmlFragment) => void
   commentMarks?: CommentMark[]
   activeCommentId?: string | null
   editable?: boolean
@@ -38,15 +73,48 @@ interface EditorProps {
 
 export function Editor({
   content,
+  documentId,
   onUpdate,
   onSelectionChange,
   onCommentClick,
+  onYjsReady,
   commentMarks = [],
   activeCommentId,
   editable = true,
 }: EditorProps) {
+  // Create a stable Yjs document for this editor instance
+  const yjsRef = useRef<{ doc: Y.Doc; fragment: Y.XmlFragment } | null>(null)
+  
   // Track if we've set initial content to avoid overwriting user edits
   const hasSetInitialContent = useRef(false)
+  const initialContentSet = useRef(false)
+
+  // Initialize Yjs document - used for relative position tracking
+  const yjsSetup = useMemo(() => {
+    if (!yjsRef.current) {
+      const doc = new Y.Doc()
+      const fragment = doc.getXmlFragment('prosemirror')
+      yjsRef.current = { doc, fragment }
+    }
+    return yjsRef.current
+  }, [])
+
+  // Notify parent when Yjs is ready
+  useEffect(() => {
+    if (onYjsReady && yjsSetup) {
+      onYjsReady(yjsSetup.doc, yjsSetup.fragment)
+    }
+  }, [yjsSetup, onYjsReady])
+
+  // Cleanup Yjs on unmount
+  useEffect(() => {
+    return () => {
+      if (yjsRef.current) {
+        yjsRef.current.doc.destroy()
+        yjsRef.current = null
+      }
+    }
+  }, [])
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -72,11 +140,14 @@ export function Editor({
         },
       }),
     ],
-    content: '', // Start empty, we'll set content in useEffect
     editable,
     onUpdate: ({ editor }) => {
       // Return JSON for consistency with database storage
       onUpdate(editor.getJSON())
+      
+      // Sync content to Yjs for position tracking
+      // This keeps the Yjs document in sync for relative position calculations
+      syncToYjs(editor, yjsSetup)
     },
     onSelectionUpdate: ({ editor }) => {
       const { from, to } = editor.state.selection
@@ -119,11 +190,14 @@ export function Editor({
         ? content.length > 0
         : content && typeof content === 'object' && Object.keys(content).length > 0
 
-    if (hasContent && !hasSetInitialContent.current) {
+    if (hasContent && !initialContentSet.current) {
       editor.commands.setContent(content)
-      hasSetInitialContent.current = true
+      initialContentSet.current = true
+      
+      // Initial sync to Yjs
+      syncToYjs(editor, yjsSetup)
     }
-  }, [editor, content])
+  }, [editor, content, yjsSetup])
 
   // Apply comment highlights
   const applyHighlights = useCallback(() => {

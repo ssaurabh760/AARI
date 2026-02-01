@@ -55,7 +55,16 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { content, highlightedText, selectionFrom, selectionTo, userId } = body
+    const {
+      content,
+      highlightedText,
+      selectionFrom,
+      selectionTo,
+      userId,
+      // Yjs relative positions (optional, for CRDT support)
+      fromRelative,
+      toRelative,
+    } = body
 
     if (!content || !highlightedText || !userId) {
       return NextResponse.json(
@@ -70,6 +79,9 @@ export async function POST(
         highlightedText,
         selectionFrom,
         selectionTo,
+        // Store Yjs relative positions if provided
+        fromRelative: fromRelative || null,
+        toRelative: toRelative || null,
         documentId: id,
         userId,
       },

@@ -192,19 +192,32 @@
   font-weight: 600;
   margin-bottom: 0.5rem;
 }
-/* Comment Highlight Styles */
+
+/* ============================================
+   Comment Highlight Styles
+   ============================================
+   These styles ensure:
+   1. Highlights are visually distinct
+   2. Copied text does NOT carry highlight styles
+   3. Only original text remains highlighted
+   ============================================ */
+
 .comment-highlight {
   background-color: #fef08a;
   border-bottom: 2px solid #eab308;
   padding: 1px 0;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  /* Important: These styles should NOT be copied */
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .comment-highlight:hover {
   background-color: #fde047;
 }
 
+/* Active comment highlight - shows which comment is selected */
 .comment-highlight-active {
   background-color: #fde047;
   animation: pulse-highlight 1s ease-in-out 2;
@@ -219,8 +232,22 @@
   }
 }
 
-/* Resolved comment highlight */
+/* Resolved comment highlight - dimmed appearance */
 .comment-highlight[data-resolved="true"] {
   background-color: #d1fae5;
   border-bottom-color: #10b981;
+}
+
+/* Ensure clipboard doesn't copy highlight styling */
+.comment-highlight::selection {
+  background-color: #3b82f6;
+  color: white;
+}
+
+/* Prevent highlight from appearing in print */
+@media print {
+  .comment-highlight {
+    background-color: transparent !important;
+    border-bottom: none !important;
+  }
 }

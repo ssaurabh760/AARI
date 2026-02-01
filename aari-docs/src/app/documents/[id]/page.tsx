@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { ArrowLeft, Loader2, Save, Check, MessageSquare, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { UserMenu } from '@/components/UserMenu'
+import * as Y from 'yjs'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -35,6 +36,8 @@ export default function DocumentPage({ params }: PageProps) {
     addReply,
     updateReply,
     deleteReply,
+    setYjsDocument,
+    getResolvedComments,
   } = useComments(id)
 
   const [title, setTitle] = useState('')
@@ -46,6 +49,9 @@ export default function DocumentPage({ params }: PageProps) {
   
   // Mobile sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  
+  // Yjs state for tracking
+  const [yjsReady, setYjsReady] = useState(false)
 
   // Get current user ID from session
   const currentUserId = session?.user?.id || ''
@@ -55,16 +61,19 @@ export default function DocumentPage({ params }: PageProps) {
     return comments.filter((c) => !c.isResolved).length
   }, [comments])
 
-  // Convert comments to marks for highlighting
+  // Convert comments to marks for highlighting using resolved positions
   const commentMarks: CommentMark[] = useMemo(() => {
-    return comments
+    // Use resolved positions if Yjs is ready, otherwise use stored positions
+    const resolvedComments = yjsReady ? getResolvedComments() : comments
+    
+    return resolvedComments
       .filter((c) => !c.isResolved)
       .map((c) => ({
         id: c.id,
         from: c.selectionFrom,
         to: c.selectionTo,
       }))
-  }, [comments])
+  }, [comments, getResolvedComments, yjsReady])
 
   // Initialize content from document
   useEffect(() => {
@@ -73,6 +82,12 @@ export default function DocumentPage({ params }: PageProps) {
       setContent(doc.content as string | object)
     }
   }, [doc])
+
+  // Handle Yjs ready callback from Editor
+  const handleYjsReady = useCallback((ydoc: Y.Doc, fragment: Y.XmlFragment) => {
+    setYjsDocument(ydoc, fragment)
+    setYjsReady(true)
+  }, [setYjsDocument])
 
   // Auto-save with debounce (5 seconds)
   const saveDocument = useCallback(async () => {
@@ -308,9 +323,11 @@ export default function DocumentPage({ params }: PageProps) {
         <div className="flex-1 overflow-y-auto">
           <Editor
             content={content}
+            documentId={id}
             onUpdate={setContent}
             onSelectionChange={setSelectedText}
             onCommentClick={handleEditorCommentClick}
+            onYjsReady={handleYjsReady}
             commentMarks={commentMarks}
             activeCommentId={activeCommentId}
           />

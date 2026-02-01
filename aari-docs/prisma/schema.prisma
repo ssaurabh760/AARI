@@ -49,28 +49,30 @@ model VerificationToken {
 
 // Application Models
 model User {
-  id        String   @id @default(cuid())
-  name      String?
-  email     String   @unique
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
   emailVerified DateTime?
-  image     String?
-  avatarUrl String?  // Legacy field, use image instead
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  image         String?
+  avatarUrl     String? // Legacy field, use image instead
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // NextAuth relations
-  accounts  Account[]
-  sessions  Session[]
+  accounts Account[]
+  sessions Session[]
 
   // App relations
-  comments  Comment[]
-  replies   Reply[]
+  comments Comment[]
+  replies  Reply[]
 }
 
 model Document {
   id        String   @id @default(cuid())
   title     String   @default("Untitled")
   content   Json     @default("{}")
+  // Yjs state for CRDT persistence (base64 encoded)
+  yjsState  String?  @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -81,8 +83,13 @@ model Comment {
   id              String   @id @default(cuid())
   content         String
   highlightedText String
+  // Absolute positions (fallback for non-Yjs clients)
   selectionFrom   Int
   selectionTo     Int
+  // Yjs relative positions (CRDT-based, survives edits)
+  // These are base64-encoded Yjs relative positions
+  fromRelative    String?  @db.Text
+  toRelative      String?  @db.Text
   isResolved      Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
